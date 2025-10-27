@@ -1,0 +1,13 @@
+[project]
+name = "real-time-inference"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "packaging>=25.0",
+    "pandas>=2.3.3",
+    "scikit-learn>=1.7.2",
+    "skl2onnx>=1.19.1",
+    "sklearn2pmml>=0.123.0",
+]
