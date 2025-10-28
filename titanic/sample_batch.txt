@@ -1,3 +1,0 @@
-# Pclass Sex Age SibSp Parch Fare Embarked
-3 male 22 1 0 7.25 S
-1 female 38 1 0 71.2833 C

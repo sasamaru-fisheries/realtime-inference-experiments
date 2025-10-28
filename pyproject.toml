@@ -10,4 +10,8 @@ dependencies = [
     "scikit-learn>=1.7.2",
     "skl2onnx>=1.19.1",
     "sklearn2pmml>=0.123.0",
+    "lightgbm>=4.5.0",
+    "onnxmltools>=1.13.0",
+    "onnxruntime>=1.19.2",
+    "onnxconverter-common>=1.14.0",
 ]

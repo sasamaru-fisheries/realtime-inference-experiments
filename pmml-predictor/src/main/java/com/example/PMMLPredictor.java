@@ -39,8 +39,8 @@ import org.jpmml.model.PMMLUtil;
  *
  * Examples:
  *   java -jar pmml-predictor-1.0-SNAPSHOT.jar 3 male 22 1 0 7.25 S
- *   java -jar pmml-predictor-1.0-SNAPSHOT.jar --batch titanic/sample_batch.txt
- *   java -jar pmml-predictor-1.0-SNAPSHOT.jar --watch --batch titanic/sample_batch.txt
+ *   java -jar pmml-predictor-1.0-SNAPSHOT.jar --batch src/sample_batch.txt
+ *   java -jar pmml-predictor-1.0-SNAPSHOT.jar --watch --batch src/sample_batch.txt
  */
 public final class PMMLPredictor {
 

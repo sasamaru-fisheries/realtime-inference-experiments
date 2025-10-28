@@ -1,0 +1,3 @@
+com/example/OnnxPredictor.class
+com/example/OnnxPredictor$PredictionOutputs.class
+com/example/OnnxPredictor$ParsedInput.class

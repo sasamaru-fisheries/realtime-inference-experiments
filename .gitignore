@@ -1,12 +1,12 @@
 # data/
-model/
-models/
+# model/
+# models/
 reports/
 
-pmml-predictor/target/
-onnx-predictor/target/
+# pmml-predictor/target/
+# onnx-predictor/target/
 
-*.pmml
-*.onnx
-*.pkl
+# *.pmml
+# *.onnx
+# *.pkl
 *.zip
