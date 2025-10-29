@@ -1,6 +1,8 @@
 import argparse
 import json
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal, Optional
 
 import joblib
 import optuna
@@ -32,14 +34,74 @@ DEFAULT_TEST_DATA = ROOT_DIR / "data" / "Titanic-Dataset.csv"
 DEFAULT_MODEL_PATH = ROOT_DIR / "models" / "titanic" / "random_forest_pipeline.pkl"
 DEFAULT_REPORT_DIR = ROOT_DIR / "reports" / "titanic" / "random_forest"
 
-
-FEATURES = ["Pclass", "Sex", "Age", "SibSp", "Parch", "Fare", "Embarked"]
 TARGET = "Survived"
+FeatureKind = Literal["numeric", "categorical"]
+IGNORED_COLUMNS = {"PassengerId", "Name", "Ticket", "Cabin"}
 
 
-def build_pipeline(random_state: int, params: dict) -> Pipeline:
-    numeric_features = ["Age", "SibSp", "Parch", "Fare"]
-    categorical_features = ["Pclass", "Sex", "Embarked"]
+@dataclass(frozen=True)
+class FeatureSpec:
+    """特徴量名と型の種別を保持するヘルパー。"""
+
+    name: str
+    kind: FeatureKind
+
+
+def infer_feature_specs(df: pd.DataFrame) -> list[FeatureSpec]:
+    """DataFrame から列の型を推定する。"""
+    specs: list[FeatureSpec] = []
+    for column in df.columns:
+        if column == TARGET:
+            continue
+        series = df[column]
+        if pd.api.types.is_numeric_dtype(series):
+            specs.append(FeatureSpec(column, "numeric"))
+            continue
+
+        numeric_candidate = pd.to_numeric(series, errors="coerce")
+        if numeric_candidate.notna().mean() >= 0.95:
+            specs.append(FeatureSpec(column, "numeric"))
+        else:
+            specs.append(FeatureSpec(column, "categorical"))
+    return specs
+
+
+def split_feature_names(feature_specs: list[FeatureSpec], kind: FeatureKind) -> list[str]:
+    return [spec.name for spec in feature_specs if spec.kind == kind]
+
+
+def load_dataset(path: Path, feature_specs: Optional[list[FeatureSpec]] = None) -> tuple[pd.DataFrame, pd.Series, list[FeatureSpec]]:
+    df = pd.read_csv(path)
+    if TARGET not in df.columns:
+        raise ValueError(f"{path} is missing target column '{TARGET}'.")
+
+    df = df.dropna(subset=[TARGET])
+    df = df.drop(columns=[col for col in IGNORED_COLUMNS if col in df.columns], errors="ignore")
+
+    specs = feature_specs or infer_feature_specs(df)
+    feature_names = [spec.name for spec in specs]
+    missing_cols = set(feature_names) - set(df.columns)
+    if missing_cols:
+        raise ValueError(f"{path} is missing required features: {missing_cols}")
+
+    X = df[feature_names].copy()
+    y = df[TARGET].astype(int)
+
+    numeric_features = split_feature_names(specs, "numeric")
+    categorical_features = split_feature_names(specs, "categorical")
+
+    for col in numeric_features:
+        X[col] = pd.to_numeric(X[col], errors="coerce")
+
+    for col in categorical_features:
+        X[col] = X[col].astype("string").fillna("")
+
+    return X, y, specs
+
+
+def build_pipeline(random_state: int, params: dict, feature_specs: list[FeatureSpec]) -> Pipeline:
+    numeric_features = split_feature_names(feature_specs, "numeric")
+    categorical_features = split_feature_names(feature_specs, "categorical")
 
     numeric_transformer = Pipeline(
         steps=[
@@ -73,18 +135,6 @@ def build_pipeline(random_state: int, params: dict) -> Pipeline:
     )
 
     return Pipeline(steps=[("preprocess", preprocessor), ("model", model)])
-
-
-def load_dataset(path: Path) -> tuple[pd.DataFrame, pd.Series]:
-    df = pd.read_csv(path)
-    missing_cols = set(FEATURES + [TARGET]) - set(df.columns)
-    if missing_cols:
-        raise ValueError(f"Dataset {path} is missing required columns: {missing_cols}")
-
-    df = df.dropna(subset=[TARGET])  # 目的変数が欠損している行は学習に使えない
-    X = df[FEATURES].copy()
-    y = df[TARGET].astype(int)
-    return X, y
 
 
 def sanitize_label(label: str) -> str:
@@ -195,6 +245,7 @@ def parse_args() -> argparse.Namespace:
 def tune_hyperparameters(
     X: pd.DataFrame,
     y: pd.Series,
+    feature_specs: list[FeatureSpec],
     test_size: float,
     random_state: int,
     n_trials: int,
@@ -221,7 +272,7 @@ def tune_hyperparameters(
             "bootstrap": trial.suggest_categorical("bootstrap", [True, False]),
         }
 
-        pipeline = build_pipeline(random_state, params)
+        pipeline = build_pipeline(random_state, params, feature_specs)
         X_train, X_valid, y_train, y_valid = train_test_split(
             X,
             y,
@@ -245,19 +296,20 @@ def tune_hyperparameters(
 
 def main() -> None:
     args = parse_args()
-    X_train_full, y_train_full = load_dataset(args.data)
-    X_external, y_external = load_dataset(args.test_data)
+    X_train_full, y_train_full, feature_specs = load_dataset(args.data)
+    X_external, y_external, _ = load_dataset(args.test_data, feature_specs=feature_specs)
 
     best_params = tune_hyperparameters(
         X_train_full,
         y_train_full,
+        feature_specs,
         args.test_size,
         args.random_state,
         args.n_trials,
         args.tune_sample_size,
     )
 
-    pipeline = build_pipeline(args.random_state, best_params)
+    pipeline = build_pipeline(args.random_state, best_params, feature_specs)
     pipeline.fit(X_train_full, y_train_full)
     evaluate(
         pipeline,

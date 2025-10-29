@@ -57,6 +57,7 @@ Python 3.12 以降を想定しています。
 - ONNX 形式で `model/titanic_random_forest.onnx` / `model/titanic_lightgbm.onnx` を出力
 - Python 再利用用に `models/titanic/random_forest_pipeline.pkl` / `models/titanic/lightgbm_pipeline.pkl` を保存
 - ONNX Runtime を使って 5 サンプルの動作確認を実行（標準出力に予測を表示）
+- CSV の列型（数値/カテゴリ）は実行時に自動判別され、`PassengerId` や `Name` など学習に不要な識別子も自動で除外されます。
 
 ```bash
 python train.py
@@ -73,7 +74,7 @@ python train.py
 
 ### (B) 個別に操作したい場合
 
-より詳細な制御や評価レポートが必要な場合は `src/` 以下を利用します。
+より詳細な制御や評価レポートが必要な場合は `src/` 以下を利用します。これらのスクリプトも `Survived` 以外の列を自動で数値/カテゴリに分類し、`PassengerId`, `Name`, `Ticket`, `Cabin` などの不要列を学習対象から外します。
 
 1. RandomForest を学習（Optuna で簡易チューニング、ROC 曲線やメトリクスを保存）
    ```bash
